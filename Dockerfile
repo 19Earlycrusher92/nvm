@@ -8,14 +8,19 @@
 
 # Use Ubuntu Trusty Tahr as base image as we're using on Travis CI
 # I also tested with Ubuntu 16.04, should be good with it!
-From ubuntu:14.04
-MAINTAINER Peter Dave Hello <hsu@peterdavehello.org>
+FROM ubuntu:16.04
+LABEL maintainer="Peter Dave Hello <hsu@peterdavehello.org>"
+LABEL name="nvm-dev-env"
+LABEL version="latest"
+
+# Set the SHELL to bash with pipefail option
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Prevent dialog during apt install
 ENV DEBIAN_FRONTEND noninteractive
 
 # ShellCheck version
-ENV SHELLCHECK_VERSION=0.4.7
+ENV SHELLCHECK_VERSION=0.7.0
 
 # Pick a Ubuntu apt mirror site for better speed
 # ref: https://launchpad.net/ubuntu/+archivemirrors
@@ -37,6 +42,7 @@ RUN apt update         && \
         bsdutils              \
         file                  \
         openssl               \
+        libssl-dev            \
         ca-certificates       \
         ssh                   \
         wget                  \
@@ -83,6 +89,10 @@ RUN wget --version
 # Add user "nvm" as non-root user
 RUN useradd -ms /bin/bash nvm
 
+# Copy and set permission for nvm directory
+COPY . /home/nvm/.nvm/
+RUN chown nvm:nvm -R "home/nvm/.nvm"
+
 # Set sudoer for "nvm"
 RUN echo 'nvm ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
@@ -90,19 +100,17 @@ RUN echo 'nvm ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 USER nvm
 
 # nvm
-COPY . /home/nvm/.nvm/
-RUN sudo chown nvm:nvm -R $HOME/.nvm
-RUN echo 'export NVM_DIR="$HOME/.nvm"'                                        >> $HOME/.bashrc
-RUN echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> $HOME/.bashrc
-RUN echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion" # This loads nvm bash_completion' >> $HOME/.bashrc
+RUN echo 'export NVM_DIR="$HOME/.nvm"'                                       >> "$HOME/.bashrc"
+RUN echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> "$HOME/.bashrc"
+RUN echo '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion" # This loads nvm bash_completion' >> "$HOME/.bashrc"
 
 # nodejs and tools
 RUN bash -c 'source $HOME/.nvm/nvm.sh   && \
     nvm install node                    && \
-    npm install -g doctoc urchin        && \
+    npm install -g doctoc urchin eclint dockerfile_lint && \
     npm install --prefix "$HOME/.nvm/"'
 
 # Set WORKDIR to nvm directory
 WORKDIR /home/nvm/.nvm
 
-ENTRYPOINT /bin/bash
+ENTRYPOINT ["/bin/bash"]
